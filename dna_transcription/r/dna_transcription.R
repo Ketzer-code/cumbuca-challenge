@@ -1,5 +1,5 @@
 # importing libraries
-library(tidyverse)
+library(magrittr)
 
 #' transcribe_dna_to_rna(dna)
 #'
@@ -16,9 +16,10 @@ transcribe_dna_to_rna <- function(dna) {
     rna_chars <- c("C", "G", "A", "U")
 
     rna <- dna %>%
-            unlist(stringr:str_split(., "")) %>%
+            stringr::str_split(., "") %>%
+            .[[1]] %>%
             plyr::mapvalues(., dna_chars, rna_chars) %>%
-            paste(., collapse = " ")
+            paste(., collapse = "")
 
     return(rna)
 }
