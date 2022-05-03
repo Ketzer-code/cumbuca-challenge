@@ -12,13 +12,17 @@ library(magrittr)
 #' @param dna A DNA sequence, as a character, to be transcribed
 #' @return The transcribed RNA sequence, as a character
 transcribe_dna_to_rna <- function(dna) {
-    dna_chars <- c("G", "C", "T", "A")
-    rna_chars <- c("C", "G", "A", "U")
+    nucleotide_switcher <- c(
+        "G" = "C",
+        "C" = "G",
+        "T" = "A",
+        "A" = "U"
+    )
 
     rna <- dna %>%
             stringr::str_split(., "") %>%
-            .[[1]] %>%
-            plyr::mapvalues(., dna_chars, rna_chars) %>%
+            unlist(.) %>%
+            dplyr::recode(., !!!nucleotide_switcher) %>%
             paste(., collapse = "")
 
     return(rna)
