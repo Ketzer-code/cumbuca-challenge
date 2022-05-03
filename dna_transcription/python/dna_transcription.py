@@ -1,4 +1,4 @@
-def transcribe_dna(seq: str) -> str:
+def transcribe_dna_to_rna(dna: str) -> str:
     """
     Transcribes a DNA sequence into a RNA sequence.
 
@@ -25,6 +25,6 @@ def transcribe_dna(seq: str) -> str:
     }
     
     # Get the corresponding RNA letter for each letter in DNA
-    rna = [nucleotide_switcher.get(l) for l in seq]
+    rna = [nucleotide_switcher.get(l) for l in dna]
 
     return "".join(rna)

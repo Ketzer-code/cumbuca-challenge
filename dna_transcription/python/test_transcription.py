@@ -1,6 +1,6 @@
 # importing libraries and functions
 import unittest
-from dna_transcription import transcribe_dna
+from dna_transcription import transcribe_dna_to_rna
 
 class TestTranscription(unittest.TestCase):
     """
@@ -20,14 +20,14 @@ class TestTranscription(unittest.TestCase):
     
     def test_one(self):
         self.assertEqual(
-            transcribe_dna("GGCTA"),
+            transcribe_dna_to_rna("GGCTA"),
             "CCGAU",
             "Sequence incorrectly transcribed, should be CCGAU"
         )
 
     def test_two(self):
         self.assertEqual(
-            transcribe_dna("ACTGATA"),
+            transcribe_dna_to_rna("ACTGATA"),
             "UGACUAU",
             "Sequence incorrectly transcribed, should be UGACUAU"
         )
