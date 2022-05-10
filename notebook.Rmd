@@ -1,0 +1,55 @@
+---
+title: "Case técnico - Data Person - Cumbuca"
+author: "Lucas Ketzer"
+date: "Mai/2022"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r setup, include = FALSE}
+reticulate::import("os")
+reticulate::import("pandas")
+```
+
+## Processando e explorando dados em um banco relacional - nycflights13
+
+em media, o atraso medio diario tende a ser menor em setembro, outubro e novembro (outono)
+
+tende a ser maior em junho, julho (inicio do verao) 
+e dezembro (onde o atraso medio diario 
+tende a ter mais valores em uma faixa maior, possivelmente por causa das festas)
+
+de janeiro a maio tende a se distribuir de maneira similar
+
+(boxplot e grafico em barras)
+
+desvio padrao p/ atraso medio tende a ser particularmente alto nos
+meses com menor atraso, tende a ser menor nos meses com maior atraso
+e relativamente constante nos outros
+
+o desvio padrao eh maior q o atraso medio pra todos os dias
+do ano
+
+entre os 10% maiores atrasos, 10% 
+sao de mais de 217 minutos, e entre o 1% 
+dos maiores atrasos, apenas 10% destes sao de
+mais de 471 minutos
+
+segundas e quintas tendem a ter o % de dias com mais
+atrasos extremos
+
+a terceira semana de junho tende a ter um percentual
+alto de atrasos extremos, assim como a primeira semana
+de julho
+
+entre 25% dos atrasos que ocorrem em um dia,
+apenas 10% nao sao negativos (ou seja, 90% de um quarto
+dos tempos de voos registrados chegam adiantados)
+
+entre um meio dos tempos de voos registrados, aproximadamente
+30% chegam adiantados
+
+essa distribuicao explica a alta variabilidade nos meses ao longo do
+ano, com os meses com maior atraso possivelmente registrando mais casos
+extremos do que o normal (o mesmo vale para meses com menor atraso)
+
