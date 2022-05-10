@@ -53,3 +53,46 @@ essa distribuicao explica a alta variabilidade nos meses ao longo do
 ano, com os meses com maior atraso possivelmente registrando mais casos
 extremos do que o normal (o mesmo vale para meses com menor atraso)
 
+algumas limitacoes: a variabilidade dos dados (apesar da amostra ser relativamente
+uniforme para os meses), nao diferenciar alguns fatores entre os atrasos que poderiam
+influenciar os meses (alguns poderiam ter mais viagens internacionais) e fatores climaticos
+
+REFERENCIAL ATRASOS: 41%
+REFERENCIAL ADIANTAMENTOS: 58%
+
+menos atrasos
+Alaska Airlines Inc. (26%)
+American Airlines Inc. (33%)
+Delta Airlines Inc. (34%)
+Endeavor Air Inc. (39%)
+Hawaiian Airlines Inc. (25%)
+SkyWest Airlines Inc. (27%)
+US Airways Inc. (33%)
+Virgin America (36%)
+
+mais atrasos
+AirTrain Airways Corporation (58%)
+Envoy Air (43%)
+ExpressJet Airlines Inc.(48%)
+Frontier Airlines Inc. (60%)
+JetBlue Airways (44%)
+Mesa Airlines Inc. (47%)
+Southwest Airlines Co. (48%)
+United Air Lines Inc. (42%)
+
+criando grupos para as companhias aereas:
+
+grupos 1 (Frontier Airlines Inc. e AirTran Airways Corporation) concentra os maiores atrasos
+
+2 (Southwest Airlines Co., ExpressJet Airlines Inc., Mesa Airlines Inc.)
+e 3 (JetBlue Airways, Envoy Air, United Air Lines Inc., Endeavor Air Inc.)
+concentram um percentual similar de atrasos, tendendo a ser mais altos
+
+4 (American Airlines Inc., US Airways Inc., Delta Air Lines Inc, Delta Air Lines Inc., Virgin America)
+concetra um nivel um pouco abaixo de atrasos
+
+5 (SkyWest Airlines Inc., Alaska Airlines Inc.) e 6 (Hawaiian Airlines Inc.)
+concentram um nivel consideravelmente baixo de atrasos
+
+ao calcular a estatistica IV, existe evidencia fraca de que ha discriminacao entre
+o valor dos grupos
