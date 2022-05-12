@@ -37,7 +37,7 @@ flights %>%
 
 create_summary <- function(df, var) {
     df_summarized <- df %>%
-                        summarise(
+                         mutate(
                             mean_var = mean({{var}}),
                             sd_var = sd({{var}}),
                             p25 = quantile({{var}}, probs = c(.25)),
@@ -53,7 +53,10 @@ flights <- flights %>%
             mutate(
                 total_delay = dep_delay + arr_delay,
                 flight_day_month = lubridate::ymd(str_sub(time_hour, 1, 10)),
-                is_delayed = ifelse(total_delay > 0, 1, 0)
+                is_delayed = ifelse(total_delay > 0, 1, 0),
+                month = strftime(flight_day_month, "%m"),
+                weekday = strftime(flight_day_month, "%u"),
+                week = strftime(flight_day_month, "%U")
             )
 
 # creating summary for each day of the year
@@ -61,11 +64,7 @@ delay_per_day <- flights %>%
                     filter(!is.na(total_delay)) %>%
                     group_by(flight_day_month) %>%
                     create_summary(total_delay) %>%
-                    mutate(
-                        month = strftime(flight_day_month, "%m"),
-                        weekday = strftime(flight_day_month, "%u"),
-                        week = strftime(flight_day_month, "%U")
-                    )
+                    distinct(flight_day_month, .keep_all = T)
 
 # checking mean avg delay per month
 delay_per_day %>%
@@ -95,17 +94,12 @@ delay_per_day %>%
 
 # analyzing percentiles 90 and 99 by
 # month, to see how extreme cases behave
-delay_per_day %>%
-    create_summary(p90) %>%
-    view(.)
-
-delay_per_day %>%
-    create_summary(p99) %>%
-    view(.)
+V
 
 # veryfing if there are specific
 # weekdays or weeks of the year that concentrate extreme cases
 
+## REFACTOR THIS ##
 delay_per_day %>%
     ungroup() %>%
     group_by(weekday) %>%
@@ -132,8 +126,7 @@ delay_per_day %>%
 
 # counting flights, delays and early arrivals per month
 flights %>%
-    mutate(month = strftime(flight_day_month, "%m")) %>%
-    select(month, is_delayed) %>%
+    dplyr::select(month, is_delayed) %>%
     table(.) %>%
     addmargins(.)
 
@@ -151,12 +144,13 @@ delay_per_day %>%
 
 # checking if there is a particular airline that has a 
 # higher percentage of delays compared to the total
-
-delays_per_airline <- flights %>%
+`delays_per_airline <- flights %>%
                             filter(!is.na(total_delay)) %>%
                             inner_join(airlines, by = "carrier") %>%
-                            select(name, is_delayed) %>%
-                            table(.)
+                            dplyr::select(name, is_delayed) %>%
+                            table(.)`
+
+## REFACTOR THIS ##
 
 prop_delays_airline <- delays_per_airline %>%
                         prop.table(margin = 1) %>%
@@ -167,7 +161,7 @@ prop_delays_airline <- delays_per_airline %>%
                         arrange(., early_arrivals_delays_ratio) %>%
                         rbind(
                             flights %>%
-                                select(is_delayed) %>%
+                                dplyr::select(is_delayed) %>%
                                 table(.) %>%
                                 prop.table(.) %>%
                                 as.data.frame(.) %>%
@@ -180,6 +174,8 @@ prop_delays_airline <- delays_per_airline %>%
 
 # creating airline groups based on distribution
 # of delays and non delays
+
+## REFACTOR THIS ##
 airline_groups <- flights %>%
                     inner_join(airlines, by = "carrier") %>%
                     mutate(group = case_when(
@@ -191,8 +187,9 @@ airline_groups <- flights %>%
                         TRUE ~ 6
                     )) 
 
+## REFACTOR THIS ##
 airline_groups %>%
-    select(group, is_delayed) %>%
+    dplyr::select(group, is_delayed) %>%
     table(.) %>%
     prop.table(margin = 1) %>%
     as.data.frame(.) %>%
@@ -202,7 +199,7 @@ airline_groups %>%
     arrange(., early_arrivals_delays_ratio) %>%
     rbind(
         flights %>%
-            select(is_delayed) %>%
+            dplyr::select(is_delayed) %>%
             table(.) %>%
             prop.table(.) %>%
             as.data.frame(.) %>%
@@ -215,8 +212,99 @@ airline_groups %>%
 # calculating iv statistic to verify
 # if variables can discriminate target variable
 airline_groups %>%
-    select(group, is_delayed) %>%
+    dplyr::select(group, is_delayed) %>%
     filter(!is.na(is_delayed)) %>%
     create_infotables(., y = "is_delayed", bins = 6)
   
 ### ---- QUESTION 3 ---- ###
+
+# preparing dataset
+flights <- flights %>%
+            left_join(planes %>% dplyr::select(manufacturer, tailnum), by = "tailnum")
+
+# most adequate analysis is anova - since sample is big,
+# analyzing if there is evidence for equal variance between groups
+flights %>%
+    filter(!is.na(manufacturer)) %>%
+    ggplot(aes(manufacturer, distance)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1))
+
+# clearly suggests for unequal variance, outliers are also
+# a problem for anova - substituting extreme values by p05
+# and p95 per group and replotting
+
+manufacturer_anova_df <- flights %>%
+                            filter(!is.na(manufacturer.x)) %>%
+                            dplyr::select(manufacturer.x, distance) %>%
+                            group_by(manufacturer.x) %>%
+                            mutate(
+                                p05 = quantile(distance, probs = c(.05)),
+                                p95 = quantile(distance, probs = c(.95)),
+                                distance = case_when(
+                                    distance < p05 ~ p05,
+                                    distance > p95 ~ p95,
+                                    TRUE ~ distance
+                                )
+                                )
+
+manufacturer_anova_df %>%
+    ggplot(aes(manufacturer, distance)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+# improvement on outliers, plot still suggest difference between
+# distance for manufacturers - checking observations per manufacturer
+manufacturer_anova_df %>%
+    summarise(count = n()) %>%
+    view()
+
+# some manufacturers dont have enough observations to assume
+# normality, mainting only ones with > 30
+manufacturer_anova_df <- manufacturer_anova_df %>%
+                            mutate(count = n()) %>%
+                            filter(count > 30)
+
+# testing
+oneway.test(distance ~ manufacturer, 
+    data = manufacturer_anova_df,
+    var.equal = FALSE
+)
+
+# repeating the same process for companies
+flights %>%
+    inner_join(airlines, by = "carrier") %>%
+    dplyr::rename(company = name) %>%
+    ggplot(aes(company, distance)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+# plot does not suggest any meaningful outliers, but unequal variance - checking
+# obs per company
+flights %>%
+    inner_join(airlines, by = "carrier") %>%
+    dplyr::rename(company = name) %>%
+    group_by(company) %>%
+    summarise(count = n())
+
+flights <- flights %>%
+            inner_join(airlines, by = "carrier")
+
+# every company has at least 30 obs. testing
+oneway.test(distance ~ name,
+    data = flights,
+    var.equal = FALSE
+)
+# some companies have 0 variance, treating dataframe
+# accordingly
+
+company_anova_df <- flights %>%
+                    group_by(name) %>%
+                    mutate(var_distance = var(distance)) %>%
+                    filter(var_distance > 0)
+
+oneway.test(distance ~ name,
+    data = company_anova_df,
+    var.equal = FALSE
+)
+
