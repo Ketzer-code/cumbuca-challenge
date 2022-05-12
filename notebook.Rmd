@@ -7,92 +7,533 @@ editor_options:
   chunk_output_type: console
 ---
 ```{r setup, include = FALSE}
-reticulate::import("os")
-reticulate::import("pandas")
+library(reticulate)
+library(showtext)
+reticulate::import("unittest")
 ```
 
-## Processando e explorando dados em um banco relacional - nycflights13
+# Transcrição DNA -> RNA
 
-em media, o atraso medio diario tende a ser menor em setembro, outubro e novembro (outono)
+Considerando que para cada letra no DNA existe uma transcrição
+correspondente para RNA, o problema pode ser facilmente solucionado
+ao considerar a string como uma lista de caracteres. Tendo a lista,
+basta substituir cada elemento na lista por seu correspondente mapeado.
 
-tende a ser maior em junho, julho (inicio do verao) 
-e dezembro (onde o atraso medio diario 
-tende a ter mais valores em uma faixa maior, possivelmente por causa das festas)
+Em Python:
+```{python}
+import unittest
 
-de janeiro a maio tende a se distribuir de maneira similar
+def transcribe_dna_to_rna(dna: str) -> str:
+    """
+    Transcribes a DNA sequence into a RNA sequence.
 
-(boxplot e grafico em barras)
+    Takes a string that represents a DNA sequence, substituting
+    each letter for it's corresponding match in a RNA sequence,
+    returning the transcribed sequence as a string.
+    
+    Parameters
+    ----------
+    seq : str
+        The DNA sequence to be transcribed.
+    
+    Returns
+    -------
+    str
+        The transcribed RNA sequence.
+    """
+    
+    nucleotide_switcher = {
+        "G":"C",
+        "C":"G",
+        "T":"A",
+        "A":"U"
+    }
+    
+    # Get the corresponding RNA letter for each letter in DNA
+    rna = [nucleotide_switcher.get(l) for l in dna]
 
-desvio padrao p/ atraso medio tende a ser particularmente alto nos
-meses com menor atraso, tende a ser menor nos meses com maior atraso
-e relativamente constante nos outros
+    return "".join(rna)
 
-o desvio padrao eh maior q o atraso medio pra todos os dias
-do ano
+class TestTranscription(unittest.TestCase):
+    """
+    Class used to test if DNA sequences
+    are being correctly transcribed into
+    RNA sequences.
 
-entre os 10% maiores atrasos, 10% 
-sao de mais de 217 minutos, e entre o 1% 
-dos maiores atrasos, apenas 10% destes sao de
-mais de 471 minutos
+    Methods
+    -------
+    test_one
+        Tests if the first mentioned sequence in the
+        challenge is being correctly transcribed.
+    test_two
+        Tests it the second mentioned sequence in the
+        challenge ins being correctly transcribed.
+    """
+    
+    def test_one(self):
+        self.assertEqual(
+            transcribe_dna_to_rna("GGCTA"),
+            "CCGAU",
+            "Sequence incorrectly transcribed, should be CCGAU"
+        )
 
-segundas e quintas tendem a ter o % de dias com mais
-atrasos extremos
+    def test_two(self):
+        self.assertEqual(
+            transcribe_dna_to_rna("ACTGATA"),
+            "UGACUAU",
+            "Sequence incorrectly transcribed, should be UGACUAU"
+        )
+if __name__ == '__main__':
+  unittest.main(exit = False)
+```
 
-a terceira semana de junho tende a ter um percentual
-alto de atrasos extremos, assim como a primeira semana
-de julho
+Em R:
+```{r}
+library(magrittr)
+library(testthat)
 
-entre 25% dos atrasos que ocorrem em um dia,
-apenas 10% nao sao negativos (ou seja, 90% de um quarto
-dos tempos de voos registrados chegam adiantados)
+#' transcribe_dna_to_rna(dna)
+#'
+#' @description
+#' Takes a string that representes a DNA sequence,
+#' substituting each letter for it's corresponding match
+#' in a RNA sequence, returning the transcribed sequence as
+#' a character.
+#'
+#' @param dna A DNA sequence, as a character, to be transcribed
+#' @return The transcribed RNA sequence, as a character
+transcribe_dna_to_rna <- function(dna) {
+    nucleotide_switcher <- c(
+        "G" = "C",
+        "C" = "G",
+        "T" = "A",
+        "A" = "U"
+    )
 
-entre um meio dos tempos de voos registrados, aproximadamente
-30% chegam adiantados
+    rna <- dna %>%
+            stringr::str_split(., "") %>%
+            unlist(.) %>%
+            dplyr::recode(., !!!nucleotide_switcher) %>%
+            paste(., collapse = "")
 
-essa distribuicao explica a alta variabilidade nos meses ao longo do
-ano, com os meses com maior atraso possivelmente registrando mais casos
-extremos do que o normal (o mesmo vale para meses com menor atraso)
+    return(rna)
+}
 
-algumas limitacoes: a variabilidade dos dados (apesar da amostra ser relativamente
-uniforme para os meses), nao diferenciar alguns fatores entre os atrasos que poderiam
-influenciar os meses (alguns poderiam ter mais viagens internacionais) e fatores climaticos
+test_that("Check if sequences in the challenge are being correctly transcribed", {
+    expect_equal(transcribe_dna_to_rna("GGCTA"), "CCGAU")
+    expect_equal(transcribe_dna_to_rna("ACTGATA"), "UGACUAU")
+})
+```
 
-REFERENCIAL ATRASOS: 41%
-REFERENCIAL ADIANTAMENTOS: 58%
+# Processando e explorando dados em um banco relacional - nycflights13
+As seções seguintes serão focadas em efetivamente responder as perguntas levantadas
+em relação a base. O código completo, contendo alguns detalhes a mais do tratamento
+da base, estará na versão em markdown deste documento.
 
-menos atrasos
-Alaska Airlines Inc. (26%)
-American Airlines Inc. (33%)
-Delta Airlines Inc. (34%)
-Endeavor Air Inc. (39%)
-Hawaiian Airlines Inc. (25%)
-SkyWest Airlines Inc. (27%)
-US Airways Inc. (33%)
-Virgin America (36%)
+```{r, include = FALSE}
+library(nycflights13)
+library(tidyverse)
+library(gridExtra)
 
-mais atrasos
-AirTrain Airways Corporation (58%)
-Envoy Air (43%)
-ExpressJet Airlines Inc.(48%)
-Frontier Airlines Inc. (60%)
-JetBlue Airways (44%)
-Mesa Airlines Inc. (47%)
-Southwest Airlines Co. (48%)
-United Air Lines Inc. (42%)
+#' create_summary(df, var)
+#'
+#' @description
+#' Creates a dataframe with summarized statistics for a
+#' specific variable
+#' 
+#' @param df The dataframe containing the variable
+#' @param var The variable to be summarized
+create_summary <- function(df, column) {
+    df_summarized <- df %>%
+                         mutate(
+                            mean_var = mean({{column}}),
+                            sd_var = sd({{column}}),
+                            variance_var = var({{column}}),
+                            p01 = quantile({{column}}, probs = c(.1)),
+                            p25 = quantile({{column}}, probs = c(.25)),
+                            p50 = median({{column}}),
+                            p90 = quantile({{column}}, probs = c(.9)),
+                            p99 = quantile({{column}}, probs = c(.99))
+                        )
+}
 
-criando grupos para as companhias aereas:
+# creating delay and day of flight variables
+# for dataframe
+flights <- flights %>%
+            mutate(
+                total_delay = dep_delay + arr_delay,
+                flight_day_month = lubridate::ymd(str_sub(time_hour, 1, 10)),
+                is_delayed = ifelse(total_delay > 0, 1, 0),
+                month = strftime(flight_day_month, "%m"),
+                weekday = strftime(flight_day_month, "%u"),
+                week = strftime(flight_day_month, "%U")
+            )
 
-grupos 1 (Frontier Airlines Inc. e AirTran Airways Corporation) concentra os maiores atrasos
+# creating summary for each day of the year
+delay_per_day <- flights %>%
+                    filter(!is.na(total_delay)) %>%
+                    group_by(flight_day_month) %>%
+                    create_summary(total_delay) %>%
+                    distinct(flight_day_month, .keep_all = T)
+```
 
-2 (Southwest Airlines Co., ExpressJet Airlines Inc., Mesa Airlines Inc.)
-e 3 (JetBlue Airways, Envoy Air, United Air Lines Inc., Endeavor Air Inc.)
-concentram um percentual similar de atrasos, tendendo a ser mais altos
+## Tendências ao longo do ano
 
-4 (American Airlines Inc., US Airways Inc., Delta Air Lines Inc, Delta Air Lines Inc., Virgin America)
-concetra um nivel um pouco abaixo de atrasos
+Como existem vários vôos que ocorrem em um mesmo dia, é necessário trabalhar com
+estatísticas descritivas para cada dia do ano - como por exemplo, o atraso médio
+diário (ou seja, a média de todos os atrasos que ocorrem em um dia) - todas as
+métricas aqui descritas são medidas descritivas de um único dia, agrupadas,
+principalmente, num recorte temporal mensal.
 
-5 (SkyWest Airlines Inc., Alaska Airlines Inc.) e 6 (Hawaiian Airlines Inc.)
-concentram um nivel consideravelmente baixo de atrasos
+Verifica-se que, em média, os atrasos médios diários tendem a ser menores em setembro,
+outubro e novembro, enquanto tendem a ser maiores em junho, julho e dezembro:
 
-ao calcular a estatistica IV, existe evidencia fraca de que ha discriminacao entre
-o valor dos grupos
+```{r, fig.showtext = TRUE, echo = FALSE}
+avg_delay_monthly_dist <- delay_per_day %>%
+                            ggplot(aes(month, mean_var)) +
+                            geom_boxplot() +
+                            labs(
+                                x = "",
+                                y = "Atraso médio diário",
+                                title = "Distribuição mensal de atraso médio diário"
+                                )
+
+avg_delay_monthly_avg <- delay_per_day %>%
+                            ungroup() %>%
+                            group_by(month) %>%
+                            summarise(
+                                mean_avg_delay = mean(mean_var),
+                                sd_avg_delay = sd(mean_var),
+                                cv_avg_delay = sd_avg_delay / mean_avg_delay * 100
+                            ) %>%
+                            ggplot(aes(month, mean_avg_delay)) +
+                            geom_bar(stat = "identity") +
+                            geom_errorbar(aes(
+                                ymin = mean_avg_delay - sd_avg_delay,
+                                ymax = mean_avg_delay + sd_avg_delay
+                                )) +
+                            geom_text(aes(label = round(mean_avg_delay, 2)), vjust = - 1) +
+                            labs(
+                                x = "",
+                                y = "Média",
+                                title = "Média e desvio mensais de atrasos médios diários"
+                                )
+                            
+grid.arrange(avg_delay_monthly_dist, avg_delay_monthly_avg,  nrow = 2)
+```
+
+É possível apontar algumas possibilidades para essas tendências: setembro,
+outubro e novembro são meses do outuno, além de apresentarem uma redução
+significativa após agosto (fim do verão, e, possivelmente, das férias de algumas pessoas.)
+
+Um aumento na média mensal do atraso médio diário em junho e julho poderia ser explicado
+pelo início do período do verão e férias, enquanto em dezembro temos semanas com atrasos mais
+intensos que poderiam ser possivelmente explicados por festas de fim de ano.
+
+De janeiro a maio, verificam-se distribuições relativamente similares,
+com uma variação máxima de 5 minutos a mais na média de março a abril. De todo modo, existe uma
+variação bastante grande na no atraso médio diário para todos os meses - repare na
+tabela que traz medidas resumo dos nonagésimo e nonagésimo nono percentil de todos os atrasos
+que ocorrem em um dia, mês a mês:
+
+```{r, echo = FALSE}
+p90_delays_summary <- delay_per_day %>%
+                        ungroup() %>%
+                        group_by(month) %>%
+                        create_summary(p90) %>%
+                        distinct(month, .keep_all = T) %>%
+                        select(month, mean_var:p99)
+
+p90_delays_summary
+
+p99_delays_summary <- delay_per_day %>%
+                        ungroup() %>%
+                        group_by(month) %>%
+                        create_summary(p99) %>%
+                        distinct(month, .keep_all = T) %>%
+                        select(month, mean_var:p99)
+
+p99_delays_summary
+```
+
+Os percentis 90 e 99 representam o 90 e 99 maiores atrasos: ou seja, no caso do percentil, 90% dos atrasos são
+menores ou iguais a este valor. Repare, por exemplo, que no mês de setembro, com menor média de atrasos médios diários,
+pode-se afirmar que, em 75% dos dias do mês, 90% dos atrasos que ocorreram foram de até 54 minutos ou mais,
+e em 75% destes mesmos dias, 99% dos atrasos que ocorreram foram de até 260 minutos ou mais. Tem-se aqui um forte indício
+de alta variabilidade nos dados, que  pode ser facilmente apontado ao se verificar a distribuição dos percentis 25% e 50% dos atrasos que ocorrem
+em um dia:
+
+```{r, echo = FALSE}
+delay_per_day %>%
+    pull(p25) %>%
+    quantile(., probs = seq(0, 1, by = 0.1))
+
+delay_per_day %>%
+    pull(p50) %>%
+    quantile(., probs = seq(0, 1, by = 0.1))
+```
+
+De 75% dos atrasos computados em um dia, ao menos
+90% são menores ou iguais a -8 minutos: o mesmo se verifica 
+para 50% dos atrasos computados em um dia, com 60% deles sendo 
+menores ou iguais a -4 minutos. Se existe uma boa parcela de 
+vôos adiantados, e, mesmo assim, verificam-se atrasos médios
+muito menores em alguns meses e muito altos em outros, uma boa
+explicação seria a existência de casos extremos em algumas semanas do ano:
+
+```{r, echo = FALSE}
+p90_delays_weekly_summary <- delay_per_day %>%
+                                ungroup() %>%
+                                group_by(week) %>%
+                                create_summary(p99) %>%
+                                distinct(week, .keep_all = T) %>%
+                                select(week, month, mean_var:p99) %>%
+                                arrange(desc(mean_var))
+
+p90_delays_weekly_summary
+```
+
+Junho possui uma semana onde, em média, 90% dos atrasos computados foram
+de 526 minutos ou menos, enquanto julho possui uma semana onde 90% dos atrasos computados
+foram de 507 minutos ou menos. Estes mesmos meses possuem um atraso médio diário elevado em
+comparação a outros meses - a existência de casos extremos muito possivelmente joga o atraso médio
+mensal para cima quando comparado com outros meses.
+
+Pontuam-se algumas limitações: considerar outros fatores, como o clima do mês e
+semanas que possuem feriados poderiam explicar melhor tendências anuais, principalmente
+dentro do contexto de um modelo de regressão. Fatores externos aos à sazonalidade poderiam,
+também, explicar atrasos em maior riqueza de detalhes: marcar aeroportos que são internacionais
+ou não, considerar a potência do motor do aviãso e a fabricante poderiam ajudar a auxiliar fatores
+sazonais - para fins de explicar possíveis tendências ao longo do ano, no entanto, essas análises
+seriam muito exageradas.
+
+## Concentração de atrasos por empresas aéreas
+Uma forma simples de verificar uma empresa com maior concentração
+de atrasos seria analisar o % de atrasos desta empresa em relação
+ao total - entretanto, se estivermos interessados em afirmar se há
+uma maneira de discriminar o percentual de atrasos entre uma empresa
+e outra, é necessário aprofundar a nossa análise.
+
+Veja, por exemplo, a tabela abaixo, com o % de vôos atrasados e não atrasados
+entre vôos para uma mesma empresa:
+
+```{r, echo = FALSE}
+flights <- flights %>%
+            inner_join(airlines, by = "carrier")
+
+#' create_prop_table(df, var, mar = NULL)
+#'
+#' @description
+#' Creates a proportion table, as a dataframe,
+#' for a dataset.
+#' 
+#' @param df The dataframe containing the variable
+#' @param var Used to pivot_longer the dataframe, to
+#' properly transform rows containg percentage values
+#' into columns
+#' @param mar Defines if percentage will be rowise,
+#' columnwise or in relation to the dataframe total
+create_prop_table <- function(df, column, mar = NULL) {
+    prop_df <- df %>%
+                table(.) %>%
+                prop.table(., margin = mar) %>%
+                as.data.frame(.) %>%
+                pivot_wider(., names_from = {{column}}, values_from = Freq)
+}
+
+delays_per_airline <- flights %>%
+                        filter(!is.na(total_delay)) %>%
+                        select(name, is_delayed) %>%
+                        create_prop_table(., is_delayed, 1) %>%
+                        rename(N = `0`, Y = `1`) %>%
+                        arrange(desc(Y))
+
+delays_per_airline
+```
+
+Esses percentuais nos dão a probabilidade condicional de um vôo pertencer
+a esta companhia aérea e estar atrasado. Veja o caso da Frontier Airlines Inc.:
+a probabilidade condicional de um vôo pertencer a esta empresa e estar atrasado é
+de aproximadamente 60% - se não há relação entre um vôo estar atrasado ou não e este
+pertencer a uma companhia aérea específica, esperamos que estes percentuais estejam próximos
+ao % total de atrasos e vôos não atrasados na base:
+
+```{r, echo = FALSE}
+flights %>%
+    filter(!is.na(total_delay)) %>%
+    select(is_delayed) %>%
+    create_prop_table(., .) %>%
+    rename(N = `0`, Y = `1`)
+```
+
+Comparando ao total da base, destacam-se as empresas
+Frontier Airlines Inc. e AirTran Airways Corporation,
+concentrando um percentual de atrasos com 17 pontos ou mais acima
+do percentual total da base. Em relação aos menores atrasos, temos
+as empresas SkyWest Airlines Inc., Alaska Airlines Inc. e Hawaiian Airlines
+Inc., com um percentual de vôos não atrasados até 14 pontos maior do que o 
+percentual total da base - o restante das companhias aéreas tem um percentual
+de 8% ou menos em relação ao referencial.
+
+Podemos agrupar as companhias com base nestes percentuais - vamos criar 3 grupos:
+os com os maiores atrasos, menos atrasos e sem diferenças perceptíveis, respectivamente,
+grupos 1, 2 e 3.
+
+```{r, echo = FALSE}
+flights <- flights %>%
+            mutate(group = case_when(
+                name %in% c("Frontier Airlines Inc.", "AirTran Airways Corporation") ~ 1,
+                name %in% c("SkyWest Airlines Inc.", "Alaska Airlines Inc.", "Hawaiian Airlines Inc.") ~ 2,
+                TRUE ~ 3
+            )) %>%
+            mutate(group = as.factor(group))
+flights %>%
+    filter(!is.na(total_delay)) %>%
+    select(group, is_delayed) %>%
+    create_prop_table(., is_delayed, 1) %>%
+    rename(N = `0`, Y = `1`) %>%
+    arrange(desc(Y))
+```
+
+Esta comparação percentual com o total da base pode dar uma boa noção se há associação
+entre o grupo de empresas aéreas e o fato do vôo estar atrasado ou não. Formalmente, é
+necessário entender se esta diferença é estatisticamente significante: isso pode ser feito
+através de um teste de hipóteses.
+
+Ele pode ser entendido como uma forma de avaliar o quão "difícil" 
+seria encontrar estes valores de atraso caso nossa hipótese fosse falsa:
+por exemplo, se realizarmos o teste a um nível de significância de 5%,
+e o teste passasse, isso nos diria que só encontraríamos um valor de teste tão extremo
+em 5% das vezes caso empresa aérea e atrasos não fossem relacionados - vamos ao teste:
+
+```{r, echo = FALSE}
+company_groups_delays_freq <- flights %>%
+                        filter(!is.na(is_delayed)) %>%
+                        select(group, is_delayed) %>%
+                        table(.)
+
+chisq.test(company_groups_delays_freq)
+```
+
+O p-valor é menor do que 0.05. Existem evidências que apontam
+que há diferença na concentração de atrasos entre os grupos: considerando
+o maior percentual de atrasos no grupo 1, não seria inadequado afirmar que
+há evidências que ele concentre mais atrasos do que os grupos restantes.
+
+Repetindo o teste para empresas aéreas como um todo:
+```{r, echo = FALSE}
+company_delays_freq <- flights %>%
+                        filter(!is.na(is_delayed)) %>%
+                        select(name, is_delayed) %>%
+                        table(.)
+
+chisq.test(company_delays_freq)
+```
+
+Também existem evidências que apontam para diferenças significativas
+entre o percentual de atrasos das empresas como um todo, com as empresas
+no grupo 1 concentrando mais atrasos em particular. Para aprofundar
+uma análise no tema, seria mais interessante, no entanto, prosseguir
+em uma análise com grupos, afim de simplificar análises.
+
+## Relação entre distância percorrida e fabricante/empresa
+
+Embora estejamos lidando com uma situação similar à da análise anterior -
+verificar se uma variável está relacionada a diferentes grupos - essa análise
+requer técnicas diferentes. Considerando que temos vários grupos, uma análise
+tabular seria muito complexa, e a distância não é uma variável que pode ser classificada
+como "aconteceu" ou "não aconteceu".
+
+Uma técnica interessante é a ANOVA, que testa se uma média para diferentes grupos é diferente -
+sabendo que elas o são, podemos coletar evidências para afirmar que as duas variáveis estão relacionadas.
+Precisamos preparar nossa base e verificar algumas hipóteses: primeiramente, vamos verificar se os dados
+tendem a variar de maneira parecida, e se existem dados que são muito discrepantes dos demais.
+
+```{r, echo = FALSE, fig.showtext = TRUE}
+flights <- flights %>%
+            left_join(planes %>% select(manufacturer, tailnum), by = "tailnum")
+
+flights %>%
+    filter(!is.na(manufacturer)) %>%
+    ggplot(aes(manufacturer, distance)) +
+    geom_boxplot() +
+    labs(
+        x = "Fabricante",
+        y = "",
+        title = "Distribuição da distância percorrida (em milhas) por fabricante"
+    ) +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1))
+```
+
+Note o formato das caixas formadas pelo gráfico - elas tem comprimentos diferentes,
+indicando que os dados não tendem a variar de forma homogênea. Os pontos indicam valores
+muito discrepantes dos demais, ditos outliers - o gráfico não exibe uma quantidade tão
+grande de pontos de modo a exigir um tratamento de substituição de outliers: podemos prosseguir
+para o teste, assumindo variância desigual entre os grupos.
+
+```{r, echo = FALSE}
+manufacturer_anova_df <- flights %>%
+                            filter(!is.na(manufacturer)) %>%
+                            group_by(manufacturer) %>%
+                            create_summary(distance) %>%
+                            filter(variance_var > 0)
+
+oneway.test(distance ~ manufacturer,
+    data = manufacturer_anova_df,
+    var.equal = FALSE
+)
+```
+
+Veja que o p-valor < 0.05, apontando evidências de que existe
+relação entre o fabricante e a distância percorrida pelo avião.
+Repetiremos o mesmo processo para empresas aéreas, apenas exibindo
+o gráfico e o resultado do teste para manter a brevidade:
+
+```{r, echo = FALSE, fig.showtext = TRUE}
+flights %>%
+    ggplot(aes(name, distance)) +
+    geom_boxplot() +
+    labs(
+        x = "Empresa aérea",
+        y = "",
+        title = "Distribuição da distância percorrida (em milhas) por empresa aérea"
+    ) +
+    theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1))
+```
+
+```{r, echo = FALSE}
+company_anova_df <- flights %>%
+                            group_by(name) %>%
+                            create_summary(distance) %>%
+                            filter(variance_var > 0)
+
+oneway.test(distance ~ name,
+    data = company_anova_df,
+    var.equal = FALSE
+)
+```
+
+A conclusão se mantém, portanto, a nível de empresas aéreas.
+
+# Pensamento estatístico
+
+* A conclusão se mantém desde todos os outros fatores sejam constantes
+(ex: a inadimplência cai a medida que o limite aumenta, desde que o número
+de negativações seja o mesmo)
+
+* Através de exemplos: se, hipoteticamente, pegarmos alguns tomadores de crédito
+com limite alto, mas que tem um bom histórico de pagamentos de conta, podemos mostrar
+de maneira prática que existem outros fatores que podem afetar essa visualização. Nesse
+exemplo hipotético, o fato de que pessoas com limite alto tendem a pagar suas contas em dia.
+
+* Uma técnica comumente aplicada para testar esse tipo de hipótese são testes _champion challenger_:
+nesse contexto, testar a concessão de limites atual x uma concessão de limites mais relaxada. Isso pode
+ser feito ao se selecionar, aleatoriamente, novos tomadores de crédito dentro de um mesmo grupo de risco
+para terem um limite maior, e outros para terem o limite que normalmente teriam, para garantir que os outros
+fatores foram devidamente controlados.
+
+* Ainda sugeriria o mesmo desenho de experimento - seria possível orientar o risco que se deseja tomar ao
+limitar o percentual do portfolio que seria sujeitado ao experimento, reduzindo a amostra e o risco. Ainda
+seria possível diversificar o risco ao, por exemplo, sujeitar o experimento a grupos específicos dos quais
+se espera menor perda antes de realizar o experimento de política com os grupos restantes, buscando uma implementação
+gradual.
